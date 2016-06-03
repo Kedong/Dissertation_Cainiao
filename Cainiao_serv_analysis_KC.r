@@ -4,6 +4,7 @@ library(RODPS)
 library(Hmisc)
 library(plyr)
 rodps.list.tables()
+# rodps.drop.table("view_wh_inv_di")
 
 # s_branch_table = rodps.load.table('cndata.s_branch_wh_replenish_plan')
 # fdf_www_branch_table = rodps.load.table('cndata.cnods_fdf_www_branch_wh_replenish_plan')
@@ -13,10 +14,6 @@ s_branch_table = rodps.query('select * from cndata.s_branch_wh_replenish_plan wh
 
 # item_cat = rodps.query('select spu_id, product_id, category_id, title from tbods.s_tmall_product where ds=20160601 limit 10000')
 # a temporarily useless table here #
-
-# warehouse info #
-s_warehouse = rodps.query('select * from cndata.dim_csn_pub_store where ds=20160601')
-# Justify warehouse type (CDC, DC, RDC) through TABLE s_wh_ext
 
 ls(s_branch_table)
 # ls(s_branch_0531)
@@ -43,7 +40,16 @@ s_branch_notest = s_branch_table[-test_id,]
 nrow(s_branch_notest)
 sum(s_branch_notest$plan_replenish_num==0 & s_branch_notest$actual_replenish_num==0)   # num of both 0
 sum((s_branch_notest$plan_replenish_num!=0 | s_branch_notest$actual_replenish_num!=0) & (s_branch_notest$plan_replenish_num-s_branch_notest$actual_replenish_num==0))
-length(unique(s_branch_notest$supplier_name))  # notice that id & name does not match exactly
+length(unique(s_branch_notest$supplier_name))  # notice that id & name does not match exactly, USE ID!
+length(unique(s_branch_notest$supplier_id))
+temp_1 = unique(cbind(s_branch_notest$supplier_id,s_branch_notest$supplier_name))
+temp_1[duplicated(temp_1[,1]),]
+#[1,] "1770526498" "容声官方旗舰店"
+#[2,] "112083600"  "世纪百诚官方旗舰店"
+#[3,] "1854775143" "JBL品牌商"
+#[4,] "1646373572" "NEW7分销平台"
+#[5,] "684765000"  "JBL官方旗舰店"
+#[6,] "2042423866" "AO史密斯品牌商"
 
 # diff needs scaling #
 s_branch_notest_aug = ddply(s_branch_notest, "scitem_id", transform, diff.group.mean=mean(diff), diff.group.sd=sd(diff))
@@ -62,8 +68,21 @@ ggplot(Diff_1, aes(Diff_1$diff)) + geom_histogram() # binwidth = 5
 ggplot(Diff_2, aes(Diff_2$diff)) + geom_histogram(binwidth = 1)
 ggplot(Diff_3, aes(Diff_3$diff)) + geom_histogram(binwidth = 1)
 
+### warehouse info ###
 # think about CDC and DC #
 s_branch_notest[which(s_branch_notest$warehouse_code=="not_any_warehouse"),]
+s_warehouse = rodps.query('select * from cndata.s_wh_ext where ds=20160601')
+# Justify warehouse type (CDC, DC, RDC) through TABLE s_wh_ext
+
+### seller info ###
+s_seller = rodps.query('select * from tbcdm.dim_tm_seller_brand_grant where ds=20160601')
+# 旗舰店-1  专卖店-2  专营店-3  商家账号法务-NA
+
+s_seller_small = s_seller[which(s_seller$shop_name %in% c(unique(s_branch_notest$supplier_name))),]
+unique(s_seller[which(is.na(s_seller$b2c_type)),]$user_nick)
+美菱品牌商
+
+
 
 
 ######################################################
