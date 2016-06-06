@@ -78,12 +78,31 @@ s_warehouse = rodps.query('select * from cndata.s_wh_ext where ds=20160601')
 s_seller = rodps.query('select * from tbcdm.dim_tm_seller_brand_grant where ds=20160601')
 # 旗舰店-1  专卖店-2  专营店-3  商家账号法务-NA
 
-s_seller_small = s_seller[which(s_seller$shop_name %in% c(unique(s_branch_notest$supplier_name))),]
-unique(s_seller[which(is.na(s_seller$b2c_type)),]$user_nick)
-美菱品牌商
+## Total number ##
+length(unique(s_seller$user_id))
+## Total digital number ##
+length(unique(s_seller[which(s_seller$bus_cat_id %in% c("474","7","263")),1]))
+unique(s_seller[which(s_seller$bus_cat_id=="474"),]$user_nick)
 
 
+# s_seller_small = s_seller[which(s_seller$shop_name %in% c(unique(s_branch_notest$supplier_name))),]  # nrow=4135
+s_seller_small = s_seller[which(s_seller$user_id %in% c(as.numeric(unique(s_branch_notest$supplier_id)))),c(1:2,7:10)]  # nrow=4614
+# unique(s_seller[which(is.na(s_seller$b2c_type)),]$user_nick)  #b2c_type = NA is "商家帐号法务"
+# s_seller_small is used for merging into s_branch_notest
+s_seller_small = unique(s_seller_small)   # has one duplicate: 931421195 名龙堂官方旗舰店(b2c=1), 931421195 名龙堂数码专营店(b2c=1)
+s_seller_small_nodup = s_seller_small[-which(s_seller_small$user_nick=="名龙堂数码专营店"),]   # nrow=4613
+unique(s_seller_small_nodup$bus_cat_id)  #474-数码卖场,7-数码3C,263-家用电器,1-服饰?(就三个),2-母婴1个,378-家具家纺1个
+# unique(s_seller_small_nodup[which(s_seller_small_nodup$bus_cat_id=="2"),])
 
+
+### Merge s_seller_small into s_branch_notest
+s_branch_notest
+
+
+merge(x, y, by = intersect(names(x), names(y)),
+      by.x = by, by.y = by, all = FALSE, all.x = all, all.y = all,
+      sort = TRUE, suffixes = c(".x",".y"),
+      incomparables = NULL, ...)
 
 ######################################################
 ######################################################
