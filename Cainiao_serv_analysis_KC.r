@@ -75,15 +75,13 @@ s_warehouse = rodps.query('select * from cndata.s_wh_ext where ds=20160601')
 # Justify warehouse type (CDC, DC, RDC) through TABLE s_wh_ext
 
 ### seller info ###
-s_seller = rodps.query('select * from tbcdm.dim_tm_seller_brand_grant where ds=20160601')
+s_seller = rodps.query('select user_id,user_nick,brand_id,brand_name,status,shop_name,b2c_type,seller_status,bus_cat_id,bus_cat_name from tbcdm.dim_tm_seller_brand_grant where ds=20160601')
 # 旗舰店-1  专卖店-2  专营店-3  商家账号法务-NA
 
 ## Total number ##
 length(unique(s_seller$user_id))
 ## Total digital number ##
-length(unique(s_seller[which(s_seller$bus_cat_id %in% c("474","7","263")),1]))
-unique(s_seller[which(s_seller$bus_cat_id=="474"),]$user_nick)
-
+length(unique(s_seller[which(s_seller$bus_cat_id %in% c(474,7,263)),1]))+5  # 5=(1-服饰?(3个),2-母婴1个,378-家具家纺1个)
 
 # s_seller_small = s_seller[which(s_seller$shop_name %in% c(unique(s_branch_notest$supplier_name))),]  # nrow=4135
 s_seller_small = s_seller[which(s_seller$user_id %in% c(as.numeric(unique(s_branch_notest$supplier_id)))),c(1:2,7:10)]  # nrow=4614
@@ -91,18 +89,34 @@ s_seller_small = s_seller[which(s_seller$user_id %in% c(as.numeric(unique(s_bran
 # s_seller_small is used for merging into s_branch_notest
 s_seller_small = unique(s_seller_small)   # has one duplicate: 931421195 名龙堂官方旗舰店(b2c=1), 931421195 名龙堂数码专营店(b2c=1)
 s_seller_small_nodup = s_seller_small[-which(s_seller_small$user_nick=="名龙堂数码专营店"),]   # nrow=4613
-unique(s_seller_small_nodup$bus_cat_id)  #474-数码卖场,7-数码3C,263-家用电器,1-服饰?(就三个),2-母婴1个,378-家具家纺1个
+unique(s_seller_small_nodup[,5:6])  #474-数码卖场,7-数码3C,263-家用电器,1-服饰?(3个),2-母婴1个,378-家具家纺1个
 # unique(s_seller_small_nodup[which(s_seller_small_nodup$bus_cat_id=="2"),])
+nrow(s_seller_small_nodup)
+
+## Users not in the TMall merchant list ##
+length(unique(s_branch_notest[which(s_branch_notest$supplier_id %in% unique(s_seller[which(s_seller$bus_cat_id %in% c(474,7,263)),1])),8]))+5
+unique(s_branch_notest[-which(s_branch_notest$supplier_id %in% unique(s_seller[which(s_seller$bus_cat_id %in% c(474,7,263)),1])),9])
+## Turned out those are 品牌商 供应商 with different supplier_id
+
+## Some stats of merchants ##
+table(s_seller_small_nodup[which(s_seller_small_nodup$bus_cat_id=="474"),]$b2c_type)
+temp_2 = unique(s_seller[which(s_seller$bus_cat_id %in% c("474","263","7")),1:2])
+write.csv(temp_2,"sellerinfo.csv")
+head(unique(s_seller[which(s_seller$bus_cat_id %in% c("7")),c(1:2,7:8)]))
+
+### The list of users that also sell on TMall.com ###
+# s_seller_small_nodup
+### Merge s_seller_small_nodup into s_branch_notest
+replenishment_seller_merge = merge(x=s_branch_notest, y=s_seller_small_nodup, by.x=c("supplier_id"),by.y=c("user_id"), all.y=T,sort=F)
+# BELOW is for verification. Verified #
+# nrow(replenishment_seller_merge)
+# nrow(s_branch_notest)
+# sum(s_branch_notest$supplier_id %in% s_seller_small_nodup$user_id)
+# length(unique(replenishment_seller_merge$supplier_id))
 
 
-### Merge s_seller_small into s_branch_notest
-s_branch_notest
 
 
-merge(x, y, by = intersect(names(x), names(y)),
-      by.x = by, by.y = by, all = FALSE, all.x = all, all.y = all,
-      sort = TRUE, suffixes = c(".x",".y"),
-      incomparables = NULL, ...)
 
 ######################################################
 ######################################################
