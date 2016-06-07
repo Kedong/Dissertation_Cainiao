@@ -4,13 +4,14 @@ library(RODPS)
 library(Hmisc)
 library(plyr)
 library(MASS)
+library(ggplot2)
 rodps.list.tables()
-# rodps.drop.table("view_wh_inv_di")
+# rodps.drop.table("view_branch_wh_replenish_plan")
 
 # s_branch_table = rodps.load.table('cndata.s_branch_wh_replenish_plan')
 # fdf_www_branch_table = rodps.load.table('cndata.cnods_fdf_www_branch_wh_replenish_plan')
 
-s_branch_table = rodps.query('select * from cndata.s_branch_wh_replenish_plan where pt=20160601000000')
+s_branch_table = rodps.load.table('s_branch_wh_replenish_plan_KC')
 # s_branch_0531 = rodps.query('select * from cndata.cnods_fdf_www_branch_wh_replenish_plan where ds=20160531')
 
 # item_cat = rodps.query('select spu_id, product_id, category_id, title from tbods.s_tmall_product where ds=20160601 limit 10000')
@@ -72,7 +73,7 @@ ggplot(Diff_3, aes(Diff_3$diff)) + geom_histogram(binwidth = 1)
 
 
 ### seller info ###
-s_seller = rodps.query('select user_id,user_nick,brand_id,brand_name,status,shop_name,b2c_type,seller_status,bus_cat_id,bus_cat_name from tbcdm.dim_tm_seller_brand_grant where ds=20160601')
+s_branch_table = rodps.load.table('s_tm_seller_KC')
 # 旗舰店-1  专卖店-2  专营店-3  商家账号法务-NA
 # delete test accounts
 test_id_2 = which((s_seller$user_nick %in% c("商家测试帐号61","商家测试帐号53","商家测试帐号57","商家测试帐号43",
@@ -143,9 +144,9 @@ summary(rep_b2c_m1)
 ### warehouse info ###
 # think about CDC and DC #
 s_branch_notest[which(s_branch_notest$warehouse_code=="not_any_warehouse"),]
-s_warehouse = rodps.query('select store_code,store_name,store_role,supplier_id from cndata.s_wh_ext')
+s_branch_table = rodps.load.table('s_warehouse_KC')
 # Justify warehouse type (JHC, CDC, DC, RDC) through TABLE s_wh_ext
-s_warehouse[s_warehouse$store_code=="LFA201",2]="DC"
+s_warehouse[which(s_warehouse$store_code=="LFA201"),2]="DC"
 s_warehouse = unique(s_warehouse[,c(1,3)])
 s_warehouse = rbind(s_warehouse,c("STORE_11326863","no_records"))
 s_warehouse = rbind(s_warehouse,c("not_any_warehouse","no_records"))
@@ -153,16 +154,15 @@ s_warehouse = rbind(s_warehouse,c("not_any_warehouse","no_records"))
 
 
 # Merge warehouse and s_branch
-reple_wh_merge = merge(x=replenishment_seller_merge, y=s_warehouse, by.x=c("warehouse_code"),by.y=c("store_code"), all.x=T,sort=F)
+reple_wh_merge = merge(x=replenishment_seller_merge, y=s_warehouse, by.x=c("warehouse_code"),by.y=c("store_code"), all=F,sort=F)
 # 考虑经过warehouse调整的replenish
 reple_wh_merge$b2c_type = as.factor(reple_wh_merge$b2c_type)
-rep_b2c_m2 = lm(diff~b2c_type*store_role, data=reple_wh_merge)
-summary(rep_b2c_m2)
-
 ## 把所有三四集仓code成DC ##
 reple_wh_merge[which(reple_wh_merge$store_role=="SANJC"),]$store_role="DC"
 reple_wh_merge[which(reple_wh_merge$store_role=="JHC"),]$store_role="CDC"
-
+# Analysis
+rep_b2c_m2 = lm(diff~b2c_type*store_role, data=reple_wh_merge)
+summary(rep_b2c_m2)
 ## RESULT: store_roleDC ** ##
 
 xtabs(diff~b2c_type+store_role, data=reple_wh_merge)
@@ -174,7 +174,14 @@ describe(reple_wh_merge$diff)
 
 
 ### product price ###
-s_tm_product = rodps.query('select product_id,spu_id,category_id,price,sales_promotion from tbods.s_tmall_product where ds=20160605')
+# DONT RUN #
+#s_tm_product = rodps.query('select product_id,spu_id,category_id,price,sales_promotion from tbods.s_tmall_product where ds=20160605')
+#s_tm_product = rodps.query('select * from product_info_KC_1')
+## NOT suitable dataset
+
+
+
+
 
 ######################################################
 ######################################################
