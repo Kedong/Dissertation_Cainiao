@@ -3,6 +3,7 @@
 library(RODPS)
 library(Hmisc)
 library(plyr)
+library(MASS)
 rodps.list.tables()
 # rodps.drop.table("view_wh_inv_di")
 
@@ -33,7 +34,8 @@ test_id = which((s_branch_table$creator_name %in% c("c测试账号133","供销�
                   (s_branch_table$supplier_name %in% c("c测试账号133","供销测试帐号03品牌商","商家测试帐号029",
                                                        "商家测试帐号19","商家测试帐号26","商家测试帐号28",
                                                        "商家测试帐号6","商家测试帐号7","test","商家测试帐号80",
-                                                       "商家测试帐号89","菜鸟测试帐号1001","商家测试帐号42")))
+                                                       "商家测试帐号89","菜鸟测试帐号1001","商家测试帐号42")) |
+                  (s_branch_table$memo %in% "虚拟订单"))
 s_branch_notest = s_branch_table[-test_id,]
 
 # some stats #
@@ -68,23 +70,33 @@ ggplot(Diff_1, aes(Diff_1$diff)) + geom_histogram() # binwidth = 5
 ggplot(Diff_2, aes(Diff_2$diff)) + geom_histogram(binwidth = 1)
 ggplot(Diff_3, aes(Diff_3$diff)) + geom_histogram(binwidth = 1)
 
-### warehouse info ###
-# think about CDC and DC #
-s_branch_notest[which(s_branch_notest$warehouse_code=="not_any_warehouse"),]
-s_warehouse = rodps.query('select * from cndata.s_wh_ext where ds=20160601')
-# Justify warehouse type (CDC, DC, RDC) through TABLE s_wh_ext
 
 ### seller info ###
 s_seller = rodps.query('select user_id,user_nick,brand_id,brand_name,status,shop_name,b2c_type,seller_status,bus_cat_id,bus_cat_name from tbcdm.dim_tm_seller_brand_grant where ds=20160601')
 # 旗舰店-1  专卖店-2  专营店-3  商家账号法务-NA
+# delete test accounts
+test_id_2 = which((s_seller$user_nick %in% c("商家测试帐号61","商家测试帐号53","商家测试帐号57","商家测试帐号43",
+                                             "商家测试帐号10","商家测试帐号110","商家测试帐号029","商家测试帐号18",
+                                             "商家测试帐号55","商家测试帐号50","商家测试帐号3","商家测试帐号11",
+                                             "商家测试帐号104","商家测试帐号54","商家测试帐号35","商家测试帐号109",
+                                             "天猫国际测试账号1","b2ctest04测试","b2ctest10测试","商家测试帐号51",
+                                             "商家测试帐号83","商家测试帐号14","测试旗舰店","测试手机专营店")) | 
+                    (s_seller$shop_name %in% c("商家测试帐号61","商家测试帐号53","商家测试帐号57","商家测试帐号43",
+                                               "商家测试帐号10","商家测试帐号110","商家测试帐号029","商家测试帐号18",
+                                               "商家测试帐号55","商家测试帐号50","商家测试帐号3","商家测试帐号11",
+                                               "商家测试帐号104","商家测试帐号54","商家测试帐号35","商家测试帐号109",
+                                               "天猫国际测试账号1","b2ctest04测试","b2ctest10测试","商家测试帐号51",
+                                               "商家测试帐号83","商家测试帐号14","测试旗舰店","测试手机专营店")))
+s_seller_notest = s_seller[-test_id_2,]  # nrow=3660358
+
 
 ## Total number ##
-length(unique(s_seller$user_id))
+length(unique(s_seller_notest$user_id))
 ## Total digital number ##
-length(unique(s_seller[which(s_seller$bus_cat_id %in% c(474,7,263)),1]))+5  # 5=(1-服饰?(3个),2-母婴1个,378-家具家纺1个)
+length(unique(s_seller_notest[which(s_seller_notest$bus_cat_id %in% c(474,7,263)),1]))+5  # 5=(1-服饰?(3个),2-母婴1个,378-家具家纺1个)
 
 # s_seller_small = s_seller[which(s_seller$shop_name %in% c(unique(s_branch_notest$supplier_name))),]  # nrow=4135
-s_seller_small = s_seller[which(s_seller$user_id %in% c(as.numeric(unique(s_branch_notest$supplier_id)))),c(1:2,7:10)]  # nrow=4614
+s_seller_small = s_seller_notest[which(s_seller_notest$user_id %in% c(as.numeric(unique(s_branch_notest$supplier_id)))),c(1:2,7:10)]  # nrow=4614
 # unique(s_seller[which(is.na(s_seller$b2c_type)),]$user_nick)  #b2c_type = NA is "商家帐号法务"
 # s_seller_small is used for merging into s_branch_notest
 s_seller_small = unique(s_seller_small)   # has one duplicate: 931421195 名龙堂官方旗舰店(b2c=1), 931421195 名龙堂数码专营店(b2c=1)
@@ -94,15 +106,22 @@ unique(s_seller_small_nodup[,5:6])  #474-数码卖场,7-数码3C,263-家用电�
 nrow(s_seller_small_nodup)
 
 ## Users not in the TMall merchant list ##
-length(unique(s_branch_notest[which(s_branch_notest$supplier_id %in% unique(s_seller[which(s_seller$bus_cat_id %in% c(474,7,263)),1])),8]))+5
-unique(s_branch_notest[-which(s_branch_notest$supplier_id %in% unique(s_seller[which(s_seller$bus_cat_id %in% c(474,7,263)),1])),9])
+length(unique(s_branch_notest[which(s_branch_notest$supplier_id %in% unique(s_seller_notest[which(s_seller_notest$bus_cat_id %in% c(474,7,263)),1])),8]))+5
+unique(s_branch_notest[-which(s_branch_notest$supplier_id %in% unique(s_seller_notest[which(s_seller_notest$bus_cat_id %in% c(474,7,263)),1])),9])
 ## Turned out those are 品牌商 供应商 with different supplier_id
 
 ## Some stats of merchants ##
-table(s_seller_small_nodup[which(s_seller_small_nodup$bus_cat_id=="474"),]$b2c_type)
-temp_2 = unique(s_seller[which(s_seller$bus_cat_id %in% c("474","263","7")),1:2])
-write.csv(temp_2,"sellerinfo.csv")
-head(unique(s_seller[which(s_seller$bus_cat_id %in% c("7")),c(1:2,7:8)]))
+cat_num=263
+user_dist_1 = table(s_seller_small_nodup[which(s_seller_small_nodup$bus_cat_id==cat_num),]$b2c_type)
+# we focus on user_id, otherwise things become messy // don't consider user_nick
+temp_2 = unique(s_seller_notest[which(s_seller_notest$bus_cat_id==cat_num),c(1,7,9)])
+# same user_nick would have different user_ids
+# for example
+# 2440758352 暴风魔镜旗舰店
+# 2468310833 暴风魔镜旗舰店
+tmall_cat_dist = table(temp_2$b2c_type)
+chisq.test(cbind(user_dist_1,tmall_cat_dist))   #p-value < 2.2e-16
+
 
 ### The list of users that also sell on TMall.com ###
 # s_seller_small_nodup
@@ -114,9 +133,48 @@ replenishment_seller_merge = merge(x=s_branch_notest, y=s_seller_small_nodup, by
 # sum(s_branch_notest$supplier_id %in% s_seller_small_nodup$user_id)
 # length(unique(replenishment_seller_merge$supplier_id))
 
+replenishment_seller_merge$b2c_type = as.factor(replenishment_seller_merge$b2c_type)
+rep_b2c_m1 = lm(diff~b2c_type, replenishment_seller_merge)
+summary(rep_b2c_m1)
+# 未经warehouse调整过的，未经product调整过的，b2c type对diff不具有显著性
+# 以下考虑warehouse 和 product 调整
 
 
+### warehouse info ###
+# think about CDC and DC #
+s_branch_notest[which(s_branch_notest$warehouse_code=="not_any_warehouse"),]
+s_warehouse = rodps.query('select store_code,store_name,store_role,supplier_id from cndata.s_wh_ext')
+# Justify warehouse type (JHC, CDC, DC, RDC) through TABLE s_wh_ext
+s_warehouse[s_warehouse$store_code=="LFA201",2]="DC"
+s_warehouse = unique(s_warehouse[,c(1,3)])
+s_warehouse = rbind(s_warehouse,c("STORE_11326863","no_records"))
+s_warehouse = rbind(s_warehouse,c("not_any_warehouse","no_records"))
+# write.csv(s_warehouse,"a.csv")
 
+
+# Merge warehouse and s_branch
+reple_wh_merge = merge(x=replenishment_seller_merge, y=s_warehouse, by.x=c("warehouse_code"),by.y=c("store_code"), all.x=T,sort=F)
+# 考虑经过warehouse调整的replenish
+reple_wh_merge$b2c_type = as.factor(reple_wh_merge$b2c_type)
+rep_b2c_m2 = lm(diff~b2c_type*store_role, data=reple_wh_merge)
+summary(rep_b2c_m2)
+
+## 把所有三四集仓code成DC ##
+reple_wh_merge[which(reple_wh_merge$store_role=="SANJC"),]$store_role="DC"
+reple_wh_merge[which(reple_wh_merge$store_role=="JHC"),]$store_role="CDC"
+
+## RESULT: store_roleDC ** ##
+
+xtabs(diff~b2c_type+store_role, data=reple_wh_merge)
+ddply(reple_wh_merge, .(b2c_type,store_role), summarise, mean(diff))
+
+## 考察 why CDC has such large diff ##
+## 从product price角度考虑? ##
+describe(reple_wh_merge$diff)
+
+
+### product price ###
+s_tm_product = rodps.query('select product_id,spu_id,category_id,price,sales_promotion from tbods.s_tmall_product where ds=20160605')
 
 ######################################################
 ######################################################
